@@ -79,50 +79,44 @@ int loadQuantum(){
     return quantum; // Sucesso
 }
 
-int* loadPriorities(int *size) {
+int* loadPriorities() {
     FILE *file = fopen("programas\\prioridades.txt", "r");
     if (file == NULL) {
         printf("Failed on opening priority file\n");
         exit(EXIT_FAILURE);
     }
 
-    // Primeiro passe: contar o número de inteiros
-    int number;
-    int count = 0;
-    while (fscanf(file, "%d", &number) == 1) {
-        count++;
-    }
-
-    // Aloca memória para o vetor com o tamanho correto
-    int *priorities = (int *)malloc(sizeof(int) * count);
+    // Aloca memória para o vetor com tamanho fixo
+    int *priorities = (int *)malloc(sizeof(int) * MAX_PROCESSESS);
     if (priorities == NULL) {
         printf("Failed on allocating memory\n");
         fclose(file);
         exit(EXIT_FAILURE);
     }
 
-    // Reinicia a leitura do arquivo
-    rewind(file);
-
-    // Segundo passe: ler os inteiros e armazenar no vetor
+    // Lê os inteiros do arquivo e armazena no vetor
     int i = 0;
-    while (fscanf(file, "%d", &number) == 1) {
-        priorities[i++] = number;
+    while (fscanf(file, "%d", &priorities[i]) == 1 && i < MAX_PROCESSESS) {
+        i++;
     }
 
     // Fecha o arquivo
     fclose(file);
 
-    // Define o número de elementos lidos
-    if (size != NULL) {
-        *size = count;
+    // Se o número de inteiros lidos for menor que MAX_PROCESSESS, realoca a memória
+    if (i < MAX_PROCESSESS) {
+        priorities = (int *)realloc(priorities, sizeof(int) * i);
+        if (priorities == NULL) {
+            printf("Failed on reallocating memory\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     return priorities;
 }
 
-
 /*Funcao para abrir o arquivo*/
+
 FILE* openFile(char* fileName){
     FILE* file = fopen(fileName, "r");
     if(file == NULL){
@@ -154,42 +148,25 @@ char** loadCommandsFromFile(FILE* file){
     return loadedCommands;
 }
 
-BCP* initializeProcess(){
+BCP* initializeProcess(FILE* file){
 }
 
-ProcessTable* initializeTable(FILE* file){
-
+ProcessTable* initializeTable(){
+    
 }
 
 void main() {
-    // int lines;
-    // char fileName[20] = "programas\\01.txt";
-    // FILE* file = openFile(fileName);
+    int quantum = loadQuantum();
+    int* priorities = loadPriorities();
+    ProcessTable *currentJobs;
+    char fileName[20];
 
-    // for (int i = 1; i<= 10; i++){
-    //     snprintf(fileName, sizeof(fileName), "programas\\%02d.txt", i);
-    //     file = openFile(fileName);
-    //     lines = countLines(file);
-    //     loadCommandsFromFile(file);
-
-    //     if(lines>=0){
-    //         printf("total is %d\n", lines);
-    //     } else {
-    //         printf("Failed on processing file %s\n", fileName);
-    //     }
-    // }
-
-    // int quantum = loadQuantum();
-    // printf("%i", quantum);
-
-    // int size;
-    // int *priorities = loadPriorities(&size);
-
-    // // Imprime os inteiros lidos
-    // for (int i = 0; i < size; i++) {
-    //     printf("priorities[%d] = %d\n", i, priorities[i]);
-    // }
-
-    // // Libera a memória alocada
-    // free(priorities);
+    for (int i = 0; i< 10; i++){
+        FILE* file;
+        int lines;
+        snprintf(fileName, sizeof(fileName), "programas\\%02d.txt", i+1);
+        file = openFile(fileName);
+        lines = countLines(file);
+        char** commands = loadCommandsFromFile(file);
+    }
 }
