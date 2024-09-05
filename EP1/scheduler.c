@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define READY 0
-#define RUNNING 1
-#define BLOCKED 2
+#define PROCESS_READY 0
+#define PROCESS_RUNNING 1
+#define PROCESS_BLOCKED 2
 
 #define INITIAL_CAPACITY 10
 #define MAX_PROCESSESS 10
@@ -12,11 +12,11 @@
 #define MAX_CHARS 8
 
 typedef struct {
+    char programName[7];
     char programCounter[3];
     int processStatus;
     int reg_X;
     int reg_Y;
-    char programName[7];
     char** p_COM;
     int processQuantum;
     int processCredits;
@@ -25,6 +25,7 @@ typedef struct {
 typedef struct {
     int process_id;
     BCP* process;
+    BCP* next_process;
 } ProcessTable;
 
 /*Funcao para contar as linhas do documento. Será muito util na hora
@@ -148,7 +149,38 @@ char** loadCommandsFromFile(FILE* file){
     return loadedCommands;
 }
 
-BCP* initializeProcess(FILE* file){
+BCP* initializeProcess(FILE* file, int quantum, int priority){
+    /*O total de comandos no processo eh igual ao numero de linhas do documento -1, pois a primeira linha é o nome do processo*/
+    int totalCommandsInProcess = countLines(file)-1; 
+    char **commands = loadCommandsFromFile(file);
+    
+    BCP* process = malloc(sizeof(BCP));
+
+    strncpy(process->programName, commands[0], sizeof(process->programName));
+    strncpy(process->programCounter, commands[1], sizeof(process->programCounter));
+    process->processStatus = PROCESS_READY;
+    process->reg_X = 0;
+    process->reg_Y = 0;
+    /*Alocando memoria para o vetor de arrays que armazenará as instruções do documento*/
+    process->p_COM = malloc(sizeof(char*)*totalCommandsInProcess);
+
+    int i;
+
+    /*Para cada posição do vetor, alocamos o espaço de 3 caracteres para os comandos*/
+    for(i = 0; i<totalCommandsInProcess; i++){
+        process->p_COM[i] = malloc(sizeof(char)*3);
+    }
+
+    for(i = 0; i<totalCommandsInProcess; i++){
+        /*Lembrando que a primeira linha do documento eh o nome do arquivo, e que os comandos começam a partir a segunda linha*/
+        strncpy(process->p_COM[i], commands[i+1], sizeof(char)*3);
+    }
+
+    free(commands);
+    process->processQuantum = quantum;
+    process->processCredits = priority;
+
+    return process;
 }
 
 ProcessTable* initializeTable(){
@@ -161,12 +193,28 @@ void main() {
     ProcessTable *currentJobs;
     char fileName[20];
 
-    for (int i = 0; i< 10; i++){
-        FILE* file;
-        int lines;
-        snprintf(fileName, sizeof(fileName), "programas\\%02d.txt", i+1);
-        file = openFile(fileName);
-        lines = countLines(file);
-        char** commands = loadCommandsFromFile(file);
+    // for (int i = 0; i< 10; i++){
+    //     FILE* file;
+    //     int lines;
+    //     snprintf(fileName, sizeof(fileName), "programas\\%02d.txt", i+1);
+    //     file = openFile(fileName);
+    //     lines = countLines(file);
+    //     char** commands = loadCommandsFromFile(file);
+    // }
+
+    FILE* file = openFile("programas\\01.txt");
+    BCP* process = initializeProcess(file, quantum, priorities[0]);
+
+    printf("Program Name: %s\n", process->programName);
+    printf("Program Counter: %s\n", process->programCounter);
+    printf("Process Status: %d\n", process->processStatus);
+    printf("Register X: %d\n", process->reg_X);
+    printf("Register Y: %d\n", process->reg_Y);
+    for(int i = 0; i < countLines(file); i++){
+        printf("Process Command %d: %s\n", i, process->p_COM[i]);
     }
+    printf("Quantum: %d\n", quantum);
+    printf("Priority: %d\n", priorities[0]);
+    fclose(file);
+    free(priorities);
 }
