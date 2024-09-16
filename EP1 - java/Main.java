@@ -50,7 +50,7 @@ class ProcessTable {
             }
             this.readyList.add(position, bcp);
         }
-        System.out.println("CARREGANDO " + bcp.processName);
+        System.out.println("Carregando " + bcp.processName);
     }
 
     public Bcp removeFromReadyList() {
@@ -138,17 +138,18 @@ public class Main {
             processTable.addToReadyList(bcp);
         }
         boolean hasProcess = true;
-
+        
         //while (hasProcess) {
             if (!processTable.readyList.isEmpty()) {
 
                 Bcp bcp = processTable.removeFromReadyList();
-                System.out.println("EXECUTANDO " + bcp.processName);
+                System.out.println("Executando " + bcp.processName);
+                
                 int i;
-                for (i = 1; i > 3; i++) {
+                for (i = 1; i <= 3; i++) {
                     if (bcp.pCOM.get(bcp.programCounter) == "E/S") {
                         System.out.println("E/S iniciada em " + bcp.processName);
-                        System.out.println("Interrompendo " + bcp.processName + "após " + i + "instruções");
+                        System.out.println("Interrompendo " + bcp.processName + "apos " + i + "instrucoes");
                         bcp.programCounter++;
                         processTable.decrementBlockedList();
                         processTable.addToBlockedList(bcp);
@@ -161,11 +162,12 @@ public class Main {
                     } else {
                         bcp.programCounter++;
                         if (i == 3) {
-                            System.out.println("Interrompendo " + bcp.processName + "após " + i + "instruções");
+                            System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
                         }
                     }
                 }
 
+                
             }
         //}
     }
