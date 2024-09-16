@@ -8,12 +8,17 @@ class Bcp {
     String processName;
     List<String> pCOM = new ArrayList<>();
     String processStatus;
-    int processQuantum;
     int processCredits;
     int processPriority;
     int regX;
     int regY;
     int blockWait;
+
+    public void decrementProcessCredits() {
+        if (this.processCredits != 0) {
+            this.processCredits--;
+        }
+    }
 }
 
 class ProcessTable {
@@ -60,6 +65,11 @@ class ProcessTable {
         return this.readyList.remove(0);
     }
 
+    public void addToBlockedList(Bcp bcp) {
+        bcp.blockWait = 2;
+        this.blockedList.add(bcp);
+    }
+
     public void decrementBlockedList() {
         for (Bcp bcp : this.blockedList) {
             if (bcp.blockWait != 0) {
@@ -68,10 +78,10 @@ class ProcessTable {
         }
     }
 
-    public void addToBlockedList(Bcp bcp) {
-        bcp.blockWait = 2;
-        this.blockedList.add(bcp);
+    public void removeFromBlockedList(Bcp bcp) {
+        this.blockedList.remove(bcp);
     }
+
 }
 
 public class Main {
@@ -137,38 +147,79 @@ public class Main {
         for (Bcp bcp : bcpListTemp) {
             processTable.addToReadyList(bcp);
         }
+
         boolean hasProcess = true;
-        
-        //while (hasProcess) {
+        while (hasProcess) {
+
+            // Decrementa tempo de espera na lista de bloqueados
+            processTable.decrementBlockedList();
+
+            // Se ter processo na lista de prontos, executa
             if (!processTable.readyList.isEmpty()) {
 
-                Bcp bcp = processTable.removeFromReadyList();
+                Bcp bcp = processTable.removeFromReadyList(); // Remove processo da lista de pronto
+                bcp.decrementProcessCredits(); // Decrementa os créditos do processo
+
                 System.out.println("Executando " + bcp.processName);
-                
+
                 int i;
-                for (i = 1; i <= 3; i++) {
-                    if (bcp.pCOM.get(bcp.programCounter) == "E/S") {
+                for (i = 1; i <= quantum; i++) {
+                    if (bcp.pCOM.get(bcp.programCounter).equals("E/S")) { // Se for comando de E/S,
                         System.out.println("E/S iniciada em " + bcp.processName);
-                        System.out.println("Interrompendo " + bcp.processName + "apos " + i + "instrucoes");
+                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
                         bcp.programCounter++;
-                        processTable.decrementBlockedList();
-                        processTable.addToBlockedList(bcp);
+                        processTable.addToBlockedList(bcp); // Interrompe o processo e coloca ele na lista de bloqueados
                         break;
-                    } else if (bcp.pCOM.get(bcp.programCounter) == "SAIDA") {
-                        System.out.println(bcp.processName + "terminado. X=" + bcp.regX + " Y=" + bcp.regY);
-                        processTable.decrementBlockedList();
-                        processTable.removeFromBcpList(bcp);
+                    } else if (bcp.pCOM.get(bcp.programCounter).equals("SAIDA")) { // Se for comando de SAIDA,
+                        System.out.println(bcp.processName + " terminado. X=" + bcp.regX + " Y=" + bcp.regY);
+                        processTable.removeFromBcpList(bcp); // Remove da tabela de processos
                         break;
+                    } else if (bcp.pCOM.get(bcp.programCounter).startsWith("X=")) { // Atribui valor no registrador X
+                        bcp.regX = Integer.parseInt(bcp.pCOM.get(bcp.programCounter).substring(2));
+                        bcp.programCounter++;
+                    } else if (bcp.pCOM.get(bcp.programCounter).startsWith("Y=")) { // Atribui valor no registrador Y
+                        bcp.regY = Integer.parseInt(bcp.pCOM.get(bcp.programCounter).substring(2));
+                        bcp.programCounter++;
                     } else {
                         bcp.programCounter++;
-                        if (i == 3) {
-                            System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
-                        }
+                    }
+                    if (i == quantum) { // Se for o último quantum,
+                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
+                        processTable.addToReadyList(bcp); // interrompe o processo e adiciona ele na lista de prontos
                     }
                 }
-
-                
             }
-        //}
+
+            // Checar se o tempo de espera do processo na lista de bloqueados é 0
+            // Se for, então retorna para lista de prontos
+            Iterator<Bcp> iterator = processTable.blockedList.iterator();
+            while (iterator.hasNext()) {
+                Bcp blockedBcp = iterator.next();
+                if (blockedBcp.blockWait == 0) {
+                    iterator.remove(); // Remove o processo da lista de bloqueados
+                    processTable.addToReadyList(blockedBcp); // Adiciona de volta à lista de prontos
+                }
+            }
+
+            // Verificação se todos os processos estão com os créditos zerados
+            boolean allCreditsZero = true;
+            for (Bcp bcp : processTable.bcpList) {
+                if (bcp.processCredits > 0) {
+                    allCreditsZero = false;
+                    break; // Se encontrar qualquer processo com crédito maior que 0, encerra verificação
+                }
+            }
+            if (allCreditsZero) { // Se todos os processor estão com os créditos zerados,
+                for (Bcp bcp : processTable.bcpList) {
+                    bcp.processCredits = bcp.processPriority; // Redistribui os créditos
+                }
+                System.out.println("Creditos redistribuidos");
+            }
+
+            // Encerra escalonador se a tabela de processos estiver vazia
+            if (processTable.bcpList.isEmpty()) {
+                hasProcess = false;
+            }
+        }
     }
 }
