@@ -218,6 +218,7 @@ public class Main {
 
             // Encerra escalonador se a tabela de processos estiver vazia
             if (processTable.bcpList.isEmpty()) {
+                System.out.println("Quantum: " + quantum);
                 hasProcess = false;
             }
         }
