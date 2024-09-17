@@ -133,6 +133,7 @@ class Scheduler {
                 Bcp bcp = processTable.removeFromReadyList(this.readyList); // Remove processo da lista de pronto
                 bcp.decrementProcessCredits(); // Decrementa os créditos do processo
 
+                bcp.processStatus = "executando";
                 writer.println("Executando " + bcp.processName);
 
                 int i;
@@ -143,6 +144,7 @@ class Scheduler {
                         bcp.programCounter++;
                         this.totalInterruption++;
                         processTable.addToBlockedList(this.blockedList, bcp);
+                        bcp.processStatus = "bloqueado";
                         break; // Coloca ele na lista de bloqueados e interrompe o processo
                     } else if (bcp.pCOM.get(bcp.programCounter).equals("SAIDA")) { // Se for comando de SAIDA,
                         writer.println(bcp.processName + " terminado. X=" + bcp.regX + " Y=" + bcp.regY);
@@ -162,6 +164,7 @@ class Scheduler {
                         writer.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
                         this.totalInterruption++;
                         processTable.addToReadyList(this.readyList, bcp);
+                        bcp.processStatus = "pronto";
                         // Interrompe o processo e adiciona ele na lista de prontos
                     }
                 }
@@ -171,10 +174,11 @@ class Scheduler {
             // Se for, então retorna para lista de prontos
             Iterator<Bcp> iterator = this.blockedList.iterator();
             while (iterator.hasNext()) {
-                Bcp blockedBcp = iterator.next();
-                if (blockedBcp.blockWait == 0) {
+                Bcp bcp = iterator.next();
+                if (bcp.blockWait == 0) {
                     iterator.remove(); // Remove o processo da lista de bloqueados
-                    processTable.addToReadyList(this.readyList, blockedBcp); // Adiciona de volta à lista de prontos
+                    processTable.addToReadyList(this.readyList, bcp); // Adiciona de volta à lista de prontos
+                    bcp.processStatus = "pronto";
                 }
             }
 
@@ -190,7 +194,7 @@ class Scheduler {
                 for (Bcp bcp : processTable.bcpList) {
                     bcp.processCredits = bcp.processPriority; // Redistribui os créditos
                 }
-                writer.println("Creditos redistribuidos");
+                // writer.println("Creditos redistribuidos");
             }
 
             // Encerra escalonador se a tabela de processos estiver vazia
@@ -224,7 +228,7 @@ public class Main {
         bcp.programCounter = 0;
         bcp.processPriority = priority;
         bcp.processCredits = priority;
-        bcp.processStatus = "ready";
+        bcp.processStatus = "pronto";
 
         return bcp;
     }

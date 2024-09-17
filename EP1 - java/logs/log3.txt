@@ -114,7 +114,6 @@ Interrompendo TESTE-6 apos 3 instrucoes
 Executando TESTE-5
 E/S iniciada em TESTE-5
 Interrompendo TESTE-5 apos 2 instrucoes
-Creditos redistribuidos
 Executando TESTE-1
 E/S iniciada em TESTE-1
 Interrompendo TESTE-1 apos 2 instrucoes
@@ -137,7 +136,6 @@ Interrompendo TESTE-2 apos 3 instrucoes
 Executando TESTE-2
 E/S iniciada em TESTE-2
 Interrompendo TESTE-2 apos 2 instrucoes
-Creditos redistribuidos
 Executando TESTE-1
 Interrompendo TESTE-1 apos 3 instrucoes
 Executando TESTE-3
@@ -146,14 +144,11 @@ Executando TESTE-2
 Interrompendo TESTE-2 apos 3 instrucoes
 Executando TESTE-2
 TESTE-2 terminado. X=9 Y=1
-Creditos redistribuidos
 Executando TESTE-1
 E/S iniciada em TESTE-1
 Interrompendo TESTE-1 apos 1 instrucoes
-Creditos redistribuidos
 Executando TESTE-1
 TESTE-1 terminado. X=2 Y=10
-Creditos redistribuidos
 Quantum: 3
 Media de trocas: 5,90
 Media de instrucoes: 2,36
