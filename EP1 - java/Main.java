@@ -1,4 +1,5 @@
 import java.util.*;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -22,14 +23,10 @@ class Bcp {
 }
 
 class ProcessTable {
-    List<Bcp> readyList;
-    List<Bcp> blockedList;
     List<Bcp> bcpList;
 
     public ProcessTable() {
         this.bcpList = new ArrayList<>();
-        this.readyList = new ArrayList<>();
-        this.blockedList = new ArrayList<>();
     }
 
     public void addToBcpList(Bcp bcp) {
@@ -40,48 +37,171 @@ class ProcessTable {
         this.bcpList.remove(bcp);
     }
 
-    public void addToReadyList(Bcp bcp) {
-        if (this.readyList.isEmpty()) {
-            this.readyList.add(bcp);
+    public void addToReadyList(List<Bcp> readyList, Bcp bcp) {
+        if (readyList.isEmpty()) {
+            readyList.add(bcp);
         } else {
             int position = 0;
-            for (int i = 0; i < this.readyList.size(); i++) {
-                Bcp existingBcp = this.readyList.get(i);
+            for (int i = 0; i < readyList.size(); i++) {
+                Bcp existingBcp = readyList.get(i);
                 if (bcp.processCredits > existingBcp.processCredits) {
                     position = i;
                     break;
                 }
                 position = i + 1;
             }
-            this.readyList.add(position, bcp);
+            readyList.add(position, bcp);
         }
-        System.out.println("Carregando " + bcp.processName);
     }
 
-    public Bcp removeFromReadyList() {
-        if (this.readyList.isEmpty()) {
+    public Bcp removeFromReadyList(List<Bcp> readyList) {
+        if (readyList.isEmpty()) {
             return null;
         }
-        return this.readyList.remove(0);
+        return readyList.remove(0);
     }
 
-    public void addToBlockedList(Bcp bcp) {
+    public void addToBlockedList(List<Bcp> blockedList, Bcp bcp) {
         bcp.blockWait = 2;
-        this.blockedList.add(bcp);
+        blockedList.add(bcp);
     }
 
-    public void decrementBlockedList() {
-        for (Bcp bcp : this.blockedList) {
+    public void decrementBlockedList(List<Bcp> blockedList) {
+        for (Bcp bcp : blockedList) {
             if (bcp.blockWait != 0) {
                 bcp.blockWait--;
             }
         }
     }
 
-    public void removeFromBlockedList(Bcp bcp) {
-        this.blockedList.remove(bcp);
+    public void removeFromBlockedList(List<Bcp> blockedList, Bcp bcp) {
+        blockedList.remove(bcp);
     }
 
+}
+
+class Scheduler {
+    boolean hasProcess;
+    List<Bcp> readyList;
+    List<Bcp> blockedList;
+    int quantum; // Número do quantum
+    double totalInterruption; // Número total de interrupções
+    double totalProcess; // Número total de processos
+    double totalInstruction; // Número total de instruções realizadas
+
+    public Scheduler(int quantum) {
+        this.hasProcess = true;
+        this.blockedList = new ArrayList<>();
+        this.readyList = new ArrayList<>();
+        this.quantum = quantum;
+        this.totalInstruction = 0;
+        this.totalInterruption = 0;
+        this.totalProcess = 0;
+    }
+
+    void processLoad(ProcessTable processTable) {
+        List<Bcp> bcpListTemp = new ArrayList<>(processTable.bcpList);
+
+        this.totalProcess = bcpListTemp.size();
+
+        Collections.sort(bcpListTemp, new Comparator<Bcp>() {
+            @Override
+            public int compare(Bcp bcp1, Bcp bcp2) {
+                return Integer.compare(bcp2.processPriority, bcp1.processPriority);
+            }
+        });
+        for (Bcp bcp : bcpListTemp) {
+            processTable.addToReadyList(this.readyList, bcp);
+            System.out.println("Carregando " + bcp.processName);
+            this.totalInstruction = this.totalInstruction + bcp.pCOM.size();
+        }
+        bcpListTemp.clear();
+    }
+
+    void run(ProcessTable processTable) {
+
+        processLoad(processTable);
+
+        while (hasProcess) {
+
+            // Decrementa tempo de espera na lista de bloqueados
+            processTable.decrementBlockedList(this.blockedList);
+
+            // Se ter processo na lista de prontos, executa
+            if (!this.readyList.isEmpty()) {
+
+                Bcp bcp = processTable.removeFromReadyList(this.readyList); // Remove processo da lista de pronto
+                bcp.decrementProcessCredits(); // Decrementa os créditos do processo
+
+                System.out.println("Executando " + bcp.processName);
+
+                int i;
+                for (i = 1; i <= this.quantum; i++) {
+                    if (bcp.pCOM.get(bcp.programCounter).equals("E/S")) { // Se for comando de E/S,
+                        System.out.println("E/S iniciada em " + bcp.processName);
+                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
+                        bcp.programCounter++;
+                        this.totalInterruption++;
+                        processTable.addToBlockedList(this.blockedList, bcp); // Interrompe o processo e coloca ele na
+                                                                              // lista
+                        // de bloqueados
+                        break;
+                    } else if (bcp.pCOM.get(bcp.programCounter).equals("SAIDA")) { // Se for comando de SAIDA,
+                        System.out.println(bcp.processName + " terminado. X=" + bcp.regX + " Y=" + bcp.regY);
+                        this.totalInterruption++;
+                        processTable.removeFromBcpList(bcp); // Remove da tabela de processos
+                        break;
+                    } else if (bcp.pCOM.get(bcp.programCounter).startsWith("X=")) { // Atribui valor no registrador X
+                        bcp.regX = Integer.parseInt(bcp.pCOM.get(bcp.programCounter).substring(2));
+                        bcp.programCounter++;
+                    } else if (bcp.pCOM.get(bcp.programCounter).startsWith("Y=")) { // Atribui valor no registrador Y
+                        bcp.regY = Integer.parseInt(bcp.pCOM.get(bcp.programCounter).substring(2));
+                        bcp.programCounter++;
+                    } else {
+                        bcp.programCounter++;
+                    }
+                    if (i == this.quantum) { // Se for o último quantum,
+                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
+                        this.totalInterruption++;
+                        processTable.addToReadyList(this.readyList, bcp); // interrompe o processo e adiciona ele na
+                                                                          // lista de
+                        // prontos
+                    }
+                }
+            }
+
+            // Checar se o tempo de espera do processo na lista de bloqueados é 0
+            // Se for, então retorna para lista de prontos
+            Iterator<Bcp> iterator = this.blockedList.iterator();
+            while (iterator.hasNext()) {
+                Bcp blockedBcp = iterator.next();
+                if (blockedBcp.blockWait == 0) {
+                    iterator.remove(); // Remove o processo da lista de bloqueados
+                    processTable.addToReadyList(this.readyList, blockedBcp); // Adiciona de volta à lista de prontos
+                }
+            }
+
+            // Verificação se todos os processos estão com os créditos zerados
+            boolean allCreditsZero = true;
+            for (Bcp bcp : processTable.bcpList) {
+                if (bcp.processCredits > 0) {
+                    allCreditsZero = false;
+                    break; // Se encontrar qualquer processo com crédito maior que 0, encerra verificação
+                }
+            }
+            if (allCreditsZero) { // Se todos os processor estão com os créditos zerados,
+                for (Bcp bcp : processTable.bcpList) {
+                    bcp.processCredits = bcp.processPriority; // Redistribui os créditos
+                }
+                System.out.println("Creditos redistribuidos");
+            }
+
+            // Encerra escalonador se a tabela de processos estiver vazia
+            if (processTable.bcpList.isEmpty()) {
+                this.hasProcess = false;
+            }
+        }
+    }
 }
 
 public class Main {
@@ -135,92 +255,14 @@ public class Main {
             }
         });
 
-        List<Bcp> bcpListTemp = new ArrayList<>(processTable.bcpList);
+        Scheduler scheduler = new Scheduler(quantum);
 
-        Collections.sort(bcpListTemp, new Comparator<Bcp>() {
-            @Override
-            public int compare(Bcp bcp1, Bcp bcp2) {
-                return Integer.compare(bcp2.processPriority, bcp1.processPriority);
-            }
-        });
+        scheduler.run(processTable);
 
-        for (Bcp bcp : bcpListTemp) {
-            processTable.addToReadyList(bcp);
-        }
-
-        boolean hasProcess = true;
-        while (hasProcess) {
-
-            // Decrementa tempo de espera na lista de bloqueados
-            processTable.decrementBlockedList();
-
-            // Se ter processo na lista de prontos, executa
-            if (!processTable.readyList.isEmpty()) {
-
-                Bcp bcp = processTable.removeFromReadyList(); // Remove processo da lista de pronto
-                bcp.decrementProcessCredits(); // Decrementa os créditos do processo
-
-                System.out.println("Executando " + bcp.processName);
-
-                int i;
-                for (i = 1; i <= quantum; i++) {
-                    if (bcp.pCOM.get(bcp.programCounter).equals("E/S")) { // Se for comando de E/S,
-                        System.out.println("E/S iniciada em " + bcp.processName);
-                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
-                        bcp.programCounter++;
-                        processTable.addToBlockedList(bcp); // Interrompe o processo e coloca ele na lista de bloqueados
-                        break;
-                    } else if (bcp.pCOM.get(bcp.programCounter).equals("SAIDA")) { // Se for comando de SAIDA,
-                        System.out.println(bcp.processName + " terminado. X=" + bcp.regX + " Y=" + bcp.regY);
-                        processTable.removeFromBcpList(bcp); // Remove da tabela de processos
-                        break;
-                    } else if (bcp.pCOM.get(bcp.programCounter).startsWith("X=")) { // Atribui valor no registrador X
-                        bcp.regX = Integer.parseInt(bcp.pCOM.get(bcp.programCounter).substring(2));
-                        bcp.programCounter++;
-                    } else if (bcp.pCOM.get(bcp.programCounter).startsWith("Y=")) { // Atribui valor no registrador Y
-                        bcp.regY = Integer.parseInt(bcp.pCOM.get(bcp.programCounter).substring(2));
-                        bcp.programCounter++;
-                    } else {
-                        bcp.programCounter++;
-                    }
-                    if (i == quantum) { // Se for o último quantum,
-                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
-                        processTable.addToReadyList(bcp); // interrompe o processo e adiciona ele na lista de prontos
-                    }
-                }
-            }
-
-            // Checar se o tempo de espera do processo na lista de bloqueados é 0
-            // Se for, então retorna para lista de prontos
-            Iterator<Bcp> iterator = processTable.blockedList.iterator();
-            while (iterator.hasNext()) {
-                Bcp blockedBcp = iterator.next();
-                if (blockedBcp.blockWait == 0) {
-                    iterator.remove(); // Remove o processo da lista de bloqueados
-                    processTable.addToReadyList(blockedBcp); // Adiciona de volta à lista de prontos
-                }
-            }
-
-            // Verificação se todos os processos estão com os créditos zerados
-            boolean allCreditsZero = true;
-            for (Bcp bcp : processTable.bcpList) {
-                if (bcp.processCredits > 0) {
-                    allCreditsZero = false;
-                    break; // Se encontrar qualquer processo com crédito maior que 0, encerra verificação
-                }
-            }
-            if (allCreditsZero) { // Se todos os processor estão com os créditos zerados,
-                for (Bcp bcp : processTable.bcpList) {
-                    bcp.processCredits = bcp.processPriority; // Redistribui os créditos
-                }
-                System.out.println("Creditos redistribuidos");
-            }
-
-            // Encerra escalonador se a tabela de processos estiver vazia
-            if (processTable.bcpList.isEmpty()) {
-                System.out.println("Quantum: " + quantum);
-                hasProcess = false;
-            }
-        }
+        System.out.println("Quantum: " + quantum);
+        System.out.println(
+                "Media de trocas: " + String.format("%.2f", scheduler.totalInterruption / scheduler.totalProcess));
+        System.out.println("Media de instrucoes: "
+                + String.format("%.2f", scheduler.totalInstruction / scheduler.totalInterruption));
     }
 }
