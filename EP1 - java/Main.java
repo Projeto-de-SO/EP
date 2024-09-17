@@ -1,5 +1,5 @@
 import java.util.*;
-
+import java.io.PrintWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -99,7 +99,7 @@ class Scheduler {
         this.totalProcess = 0;
     }
 
-    void processLoad(ProcessTable processTable) {
+    void processLoad(ProcessTable processTable, PrintWriter writer) {
         List<Bcp> bcpListTemp = new ArrayList<>(processTable.bcpList);
 
         this.totalProcess = bcpListTemp.size();
@@ -112,15 +112,15 @@ class Scheduler {
         });
         for (Bcp bcp : bcpListTemp) {
             processTable.addToReadyList(this.readyList, bcp);
-            System.out.println("Carregando " + bcp.processName);
+            writer.println("Carregando " + bcp.processName);
             this.totalInstruction = this.totalInstruction + bcp.pCOM.size();
         }
         bcpListTemp.clear();
     }
 
-    void run(ProcessTable processTable) {
+    void run(ProcessTable processTable, PrintWriter writer) {
 
-        processLoad(processTable);
+        processLoad(processTable, writer);
 
         while (hasProcess) {
 
@@ -133,21 +133,19 @@ class Scheduler {
                 Bcp bcp = processTable.removeFromReadyList(this.readyList); // Remove processo da lista de pronto
                 bcp.decrementProcessCredits(); // Decrementa os créditos do processo
 
-                System.out.println("Executando " + bcp.processName);
+                writer.println("Executando " + bcp.processName);
 
                 int i;
                 for (i = 1; i <= this.quantum; i++) {
                     if (bcp.pCOM.get(bcp.programCounter).equals("E/S")) { // Se for comando de E/S,
-                        System.out.println("E/S iniciada em " + bcp.processName);
-                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
+                        writer.println("E/S iniciada em " + bcp.processName);
+                        writer.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
                         bcp.programCounter++;
                         this.totalInterruption++;
-                        processTable.addToBlockedList(this.blockedList, bcp); // Interrompe o processo e coloca ele na
-                                                                              // lista
-                        // de bloqueados
-                        break;
+                        processTable.addToBlockedList(this.blockedList, bcp);
+                        break; // Coloca ele na lista de bloqueados e interrompe o processo
                     } else if (bcp.pCOM.get(bcp.programCounter).equals("SAIDA")) { // Se for comando de SAIDA,
-                        System.out.println(bcp.processName + " terminado. X=" + bcp.regX + " Y=" + bcp.regY);
+                        writer.println(bcp.processName + " terminado. X=" + bcp.regX + " Y=" + bcp.regY);
                         this.totalInterruption++;
                         processTable.removeFromBcpList(bcp); // Remove da tabela de processos
                         break;
@@ -161,11 +159,10 @@ class Scheduler {
                         bcp.programCounter++;
                     }
                     if (i == this.quantum) { // Se for o último quantum,
-                        System.out.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
+                        writer.println("Interrompendo " + bcp.processName + " apos " + i + " instrucoes");
                         this.totalInterruption++;
-                        processTable.addToReadyList(this.readyList, bcp); // interrompe o processo e adiciona ele na
-                                                                          // lista de
-                        // prontos
+                        processTable.addToReadyList(this.readyList, bcp);
+                        // Interrompe o processo e adiciona ele na lista de prontos
                     }
                 }
             }
@@ -193,7 +190,7 @@ class Scheduler {
                 for (Bcp bcp : processTable.bcpList) {
                     bcp.processCredits = bcp.processPriority; // Redistribui os créditos
                 }
-                System.out.println("Creditos redistribuidos");
+                writer.println("Creditos redistribuidos");
             }
 
             // Encerra escalonador se a tabela de processos estiver vazia
@@ -201,6 +198,10 @@ class Scheduler {
                 this.hasProcess = false;
             }
         }
+
+        writer.println("Quantum: " + quantum);
+        writer.println("Media de trocas: " + String.format("%.2f", this.totalInterruption / this.totalProcess));
+        writer.println("Media de instrucoes: " + String.format("%.2f", this.totalInstruction / this.totalInterruption));
     }
 }
 
@@ -255,14 +256,11 @@ public class Main {
             }
         });
 
-        Scheduler scheduler = new Scheduler(quantum);
-
-        scheduler.run(processTable);
-
-        System.out.println("Quantum: " + quantum);
-        System.out.println(
-                "Media de trocas: " + String.format("%.2f", scheduler.totalInterruption / scheduler.totalProcess));
-        System.out.println("Media de instrucoes: "
-                + String.format("%.2f", scheduler.totalInstruction / scheduler.totalInterruption));
+        try (PrintWriter writer = new PrintWriter("logs/log" + quantum + ".txt")) {
+            Scheduler scheduler = new Scheduler(quantum);
+            scheduler.run(processTable, writer); // Executa o escalonador e escreve no arquivo
+        } catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
     }
 }
